@@ -82,7 +82,7 @@ LEFTALIGN = smithwaterman/LeftAlign.o
 
 FSOM = fsom/fsom.o
 
-INCLUDES = -lm -lz -L. -Ltabixpp/ -ltabix
+INCLUDES = -L. -Ltabixpp/ -ltabix -lm -lz
 
 all: $(OBJECTS) $(BINS)
 
@@ -106,7 +106,7 @@ gprof:
 	$(MAKE) CXXFLAGS="$(CXXFLAGS) -pg" all
 
 $(OBJECTS): $(SOURCES) $(HEADERS) $(TABIX)
-	$(CXX) -c -o $@ $(*F).cpp $(INCLUDES) $(LDFLAGS) $(CXXFLAGS)
+	$(CXX) $(*F).cpp -c -o $@ $(INCLUDES) $(LDFLAGS) $(CXXFLAGS)
 
 $(TABIX):
 	cd tabixpp && $(MAKE)
