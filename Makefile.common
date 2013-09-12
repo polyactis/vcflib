@@ -1,0 +1,58 @@
+
+.SUFFIXES:	.i .cc .c .so .o _wrap.o .py
+.PHONY:	swig clean_subdirs subdirs $(SUBDIRS)
+
+IncludeDirs = -I ~/script/
+BoostLib  = -lboost_program_options -lboost_iostreams
+HDF5Lib  = -lhdf5_cpp -lhdf5 
+
+## CXXTARGETS, CXXLDFLAGS, CTARGETS, CLDFLAGS, ExtraTargets will be defined in child Makefiles 
+#CXXTARGETS	= 
+CXXFLAGS	= -fPIC -O3 -D_FILE_OFFSET_BITS=64 -std=c++0x
+CXXCOMPILER	= g++
+#CXXLDFLAGS	= 
+
+#CTARGETS	= 
+CFLAGS		= -fPIC -O3 -D_FILE_OFFSET_BITS=64
+CCOMPILER	= gcc
+#CLDFLAGS	=
+
+#SharedLibTargets	=
+SharedLibFlags	= -shared -fPIC
+
+#ExtraTargets
+#SRCS
+
+
+
+#$(SharedLibTargets):	%.so:	%.o
+#	-$(CXXCOMPILER) $< $(SharedLibFlags) -o $@ $(CXXLDFLAGS)
+
+#.o.so:
+#	-$(CXXCOMPILER) $< $(SharedLibFlags) -o $@ $(CXXLDFLAGS)
+
+$(CXXTARGETS):	%:	%.o
+	-$(CXXCOMPILER) $< $(CXXFLAGS) -o $@ $(CXXLDFLAGS)
+
+.cc.o:
+	-$(CXXCOMPILER) $< $(CXXFLAGS) $(IncludeDirs) -c -o $@
+.cpp.o:
+	-$(CXXCOMPILER) $< $(CXXFLAGS) $(IncludeDirs) -c -o $@
+
+$(CTARGETS):	%:	%.o
+	-$(CCOMPILER) $< $(CFLAGS) -o $@ $(CLDFLAGS)
+
+.c.o:
+	-$(CXXCOMPILER) $< $(CXXFLAGS) $(IncludeDirs) -c -o $@
+
+
+#subdirs:
+#	for dir in $(SUBDIRS); do \
+#		$(MAKE) -C $$dir all; \
+#	done
+#	
+#clean_subdirs:
+#	for dir in $(SUBDIRS); do \
+#		$(MAKE) -C $$dir clean; \
+#	done
+#
