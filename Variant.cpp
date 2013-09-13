@@ -2,6 +2,17 @@
 
 namespace vcf {
 
+
+Variant::Variant() {
+	genotypeCoder = GenotypeCoder();
+}
+
+Variant::Variant(VariantCallFile& v) : sampleNames(v.sampleNames), outputSampleNames(v.sampleNames), vcf(&v) {
+	genotypeCoder = GenotypeCoder();
+}
+Variant::~Variant(){
+}
+
 void Variant::parse(string& line, bool parseSamples) {
 
     // clean up potentially variable data structures
@@ -30,7 +41,7 @@ void Variant::parse(string& line, bool parseSamples) {
     // add the ref allele ([0]), resize for the alt alleles, and then add the alt alleles
     alleles.push_back(ref);
     alleles.resize(alt.size()+1);
-    std::copy(alt.begin(), alt.end(), alleles.begin()+1);
+    copy(alt.begin(), alt.end(), alleles.begin()+1);
 
     // set up reverse lookup of allele index
     altAlleleIndexes.clear();
@@ -961,6 +972,18 @@ bool VariantCallFile::openVCF(ifstream& stream) {
 }
 */
 
+
+VariantCallFile::VariantCallFile(void) : usingTabix(false), parseSamples(true), justSetRegion(false), parsedHeader(false){
+
+}
+
+VariantCallFile::~VariantCallFile(void) {
+	if (usingTabix) {
+		delete tabixFile;
+	}
+	dataMatrix.clear();
+}
+
 void VariantCallFile::updateSamples(vector<string>& newSamples) {
     sampleNames = newSamples;
     // regenerate the last line of the header
@@ -1033,6 +1056,49 @@ vector<string> VariantCallFile::formatIds(void) {
     return tags;
 }
 
+void VariantCallFile::readInLocusList(){
+	Variant var = Variant();
+	var.setOutputSampleNames(sampleNames);
+	var.setVariantCallFile(this);
+	while (getNextVariant(var)) {
+		Locus locus(var.sequenceName, var.position);
+		locus2index.insert(locus2indexBiMapType::value_type(locus, locusList.size()));
+		locusList.push_back(locus);
+	}
+}
+
+void VariantCallFile::readInDataMatrix(){
+	Variant var = Variant();
+	//var.setOutputSampleNames(sampleNames);
+	var.setVariantCallFile(this);
+	while (getNextVariant(var)) {
+		Locus locus(var.sequenceName, var.position);
+		locus2index.insert(locus2indexBiMapType::value_type(locus, locus2index.size()) );
+		locusList.push_back(locus);
+
+		map<string, map<string, vector<string> > >::iterator s =
+				var.samples.begin();
+		map<string, map<string, vector<string> > >::iterator sEnd =
+				var.samples.end();
+
+		int* oneVariantGenotypeVector = new int[sampleNames.size()];
+		int i=0;
+		for (; s != sEnd; ++s) {
+			map < string, vector<string> > &sample = s->second;
+			string& indexGenotype = sample["GT"].front(); // XXX assumes we can only have one GT value
+			int genotypeInteger = var.encodeGenotype(var.translateIndexGenotypeIntoNucleotideGenotype(indexGenotype));
+
+			sampleName2index.insert(sampleName2indexBiMapType::value_type(s->first, sampleNames.size()) );
+			sampleNames.push_back(s->first);
+			oneVariantGenotypeVector[i] = genotypeInteger;
+			//oneVariantGenotypeVector.push_back(genotypeInteger);
+			i++;
+
+		}
+		dataMatrix.push_back(oneVariantGenotypeVector);
+	}
+}
+
 void VariantCallFile::removeInfoHeaderLine(string tag) {
     vector<string> headerLines = split(header, '\n');
     vector<string> newHeader;
@@ -1080,7 +1146,7 @@ bool VariantCallFile::parseHeader(void) {
         tabixFile->getNextLine(line);
         firstRecord = true;
     } else {
-        while (std::getline(*file, line)) {
+        while (getline(*file, line)) {
             if (line.substr(0,1) == "#") {
                 headerStr += line + '\n';
             } else {
@@ -1213,7 +1279,7 @@ bool VariantCallFile::parseHeader(string& hs) {
                 return false;
             }
         } else {
-            if (std::getline(*file, line)) {
+            if (getline(*file, line)) {
                 var.parse(line, parseSamples);
                 _done = false;
                 return true;
@@ -1588,6 +1654,27 @@ ostream& operator<<(ostream& out, VariantAllele& var) {
 bool operator<(const VariantAllele& a, const VariantAllele& b) {
     return a.repr < b.repr;
 }
+
+ostream& operator<<(ostream& out, Locus& locus) {
+	/*
+	 * 2013.09.10
+	 */
+    out << locus.repr;
+    return out;
+}
+
+bool operator<(const Locus& a, const Locus& b) {
+	/*
+	 * 2013.09.10
+	 */
+	if (a.sequenceName==b.sequenceName){	//same chromosome
+		return a.position<b.position;
+	}
+	else{
+		return a.sequenceName<b.sequenceName;	//different chromosome
+	}
+}
+
 
 map<pair<int, int>, int> Variant::getGenotypeIndexesDiploid(void) {
 

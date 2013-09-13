@@ -13,6 +13,16 @@
 #include <stack>
 #include <queue>
 #include <set>
+#include <functional>	//2013.09.11 for customize hash
+#include <boost/functional/hash.hpp>	//2013.09.10 yh: for customize boost::hash
+#include <boost/bimap.hpp>
+#include <boost/assign/list_inserter.hpp>
+#include <boost/assign/list_of.hpp>
+#include <boost/assign/list_inserter.hpp>
+#include <boost/bimap/bimap.hpp>
+#include <boost/bimap/multiset_of.hpp>
+#include <boost/bimap/list_of.hpp>
+
 #include "split.h"
 #include "join.h"
 #include "tabixpp/tabix.hpp"
@@ -21,10 +31,15 @@
 #include "ssw_cpp.h"
 #include "convert.h"
 #include "multichoose/multichoose.h"
+#include "pymodule/include/Polymorphism.h"
+
 
 using namespace std;
 
 namespace vcf {
+
+
+
 
 class Variant;
 
@@ -42,9 +57,35 @@ enum VariantFieldNumber { ALLELE_NUMBER = -2
 const int INDEX_NONE = -1;
 const int NULL_ALLELE = -1;
 
-VariantFieldType typeStrToFieldType(string& typeStr);
+VariantFieldType typeStrToFieldType(std::string& typeStr);
 ostream& operator<<(ostream& out, VariantFieldType type);
 
+class Locus {
+	/*
+	 * 2013.09.10 class to store locus info only
+	 */
+	friend ostream& operator<<(ostream& out, Locus& locus); //for output
+	friend bool operator<(const Locus& a, const Locus& b); //for sorting
+	friend bool operator==(const Locus& a, const Locus& b) {
+		return a.sequenceName == b.sequenceName && a.position == b.position;
+	}
+public:
+	string sequenceName;
+	long position;
+	string repr;
+	string ref;	//unused now
+	string alt;	//unused now
+	Locus(string _sequenceName, long _position) :
+			sequenceName(_sequenceName), position(_position) {
+		stringstream s;
+		s << sequenceName << ":" << position;
+		repr = s.str();
+	}
+};
+
+
+typedef boost::bimap<Locus, long > locus2indexBiMapType;
+typedef boost::bimap<string, long > sampleName2indexBiMapType;
 
 class VariantCallFile {
 
@@ -67,8 +108,14 @@ public:
     map<string, VariantFieldType> formatTypes;
     map<string, int> formatCounts;
     vector<string> sampleNames;
+    vector<Locus> locusList;	//2013.09.10 yh
+
+    sampleName2indexBiMapType sampleName2index;	//column index in the data matrix
+    locus2indexBiMapType locus2index;	//row index in the data matrix
+
     bool parseSamples;
     bool _done;
+    vector<int* > dataMatrix;	// to store entire genotype matrix
 
     void updateSamples(vector<string>& newSampleNames);
     void addHeaderLine(string line);
@@ -76,6 +123,9 @@ public:
     void removeGenoHeaderLine(string line);
     vector<string> infoIds(void);
     vector<string> formatIds(void);
+
+    void readInLocusList();
+    void readInDataMatrix();
 
     bool open(string& filename) {
         vector<string> filenameParts = split(filename, ".");
@@ -117,12 +167,8 @@ public:
         return parsedHeader;
     }
 
-VariantCallFile(void) : usingTabix(false), parseSamples(true), justSetRegion(false), parsedHeader(false) { }
-    ~VariantCallFile(void) {
-        if (usingTabix) {
-            delete tabixFile;
-        }
-    }
+    VariantCallFile();
+    ~VariantCallFile();
 
     bool is_open(void) { return parsedHeader; }
 
@@ -164,6 +210,8 @@ public:
         repr = s.str();
     }
 };
+
+
 
 class Variant {
 
@@ -212,6 +260,8 @@ public:
     vector<string> outputSampleNames;
     VariantCallFile* vcf;
 
+    GenotypeCoder genotypeCoder;
+
     //void addInfoInt(string& tag, int value);
     //void addInfoFloat(string& tag, double value);
     //void addInfoString(string& tag, string& value);
@@ -221,13 +271,9 @@ public:
 
 public:
 
-    Variant() { }
-
-    Variant(VariantCallFile& v)
-        : sampleNames(v.sampleNames)
-        , outputSampleNames(v.sampleNames)
-        , vcf(&v)
-    { }
+	Variant();
+	Variant(VariantCallFile& v);
+	~Variant();
 
     void setVariantCallFile(VariantCallFile& v);
     void setVariantCallFile(VariantCallFile* v);
@@ -253,6 +299,35 @@ public:
     int getNumSamples(void);
     int getNumValidGenotypes(void);
     string getGenotype(string& sample);
+	string translateIndexGenotypeIntoNucleotideGenotype(string indexGenotype) {
+		/*
+		 * 2013.09.11 input indexGenotype is like "0/1" or "0|1"
+		 * 	output is A/G or A|G
+		 */
+		//vector<string> gt = split(indexGenotype, "|/");
+		vector<string> nucleotideList;
+		for (string::iterator gIterator = indexGenotype.begin();
+				gIterator != indexGenotype.end(); ++gIterator) {
+			char singleNucleotide = *gIterator;
+			if (singleNucleotide=='/' or singleNucleotide=='|'){
+				nucleotideList.push_back(string(gIterator, gIterator+1));
+			}
+			else{
+				int index = atoi(&singleNucleotide);
+				nucleotideList.push_back(alleles[index]);
+			}
+		}
+		return join(nucleotideList, "");
+	}
+	int encodeGenotype(string genotype) {
+		/*
+		 * genotype is like 'A' 'AA', 'A/A', 'A|G', 'A/G', not '0/1'
+		 */
+		return genotypeCoder.encode(genotype);
+	}
+	string decodeGenotypeInteger(int genotypeInteger) {
+		return genotypeCoder.decode(genotypeInteger);
+	}
     bool isPhased(void);
     // TODO
     //void setInfoField(string& key, string& val);
@@ -473,5 +548,25 @@ bool isEmptyCigarElement(const pair<int, string>& elem);
 
 
 } // end namespace VCF
+
+namespace std {
+	template<> struct hash<vcf::Locus> {
+		/*
+		 * 2013.09.10 hash function for Locus, this requires g++ flag "-std=c++0x"
+		 */
+		size_t operator()(const vcf::Locus& locus) const {
+
+			// Start with a hash value of 0    .
+			size_t seed = 0;
+
+			// Modify 'seed' by XORing and bit-shifting in
+			// one member of 'Key' after the other:
+			boost::hash_combine(seed, boost::hash_value(locus.sequenceName));
+			boost::hash_combine(seed, boost::hash_value(locus.position));
+			return seed;
+		}
+	};
+
+}
 
 #endif

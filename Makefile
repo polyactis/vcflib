@@ -1,3 +1,14 @@
+
+include Makefile.common
+
+CXX	= g++
+CXXFLAGS	= -O3 -D_FILE_OFFSET_BITS=64 -fPIC -std=c++0x
+LDFLAGS	=  -ltabix -lm -lz
+SharedLibFlags	= -shared -fPIC
+
+#CXXFLAGS = -O2
+#CXXFLAGS = -pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual
+
 #OBJ_DIR = ./
 HEADERS = Variant.h \
 		  split.h \
@@ -64,6 +75,7 @@ BIN_SOURCES = vcfecho.cpp \
 			  vcfgenosamplenames.cpp \
 			  vcfgeno2haplo.cpp
 
+SRCS = $(BIN_SOURCES)
 BINS = $(BIN_SOURCES:.cpp=)
 
 TABIX = tabixpp/tabix.o
@@ -82,14 +94,12 @@ LEFTALIGN = smithwaterman/LeftAlign.o
 
 FSOM = fsom/fsom.o
 
-INCLUDES = -L. -Ltabixpp/ -ltabix -lm -lz
+INCLUDES = -L. -Ltabixpp/
 
-all: $(OBJECTS) $(BINS)
+SharedLibTargets	= libvcf.so
 
-CXX = g++
-CXXFLAGS = -O3 -D_FILE_OFFSET_BITS=64
-#CXXFLAGS = -O2
-#CXXFLAGS = -pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual
+all: $(SharedLibTargets) $(OBJECTS) $(BINS)
+
 
 SSW = ssw.o ssw_cpp.o
 
@@ -97,22 +107,22 @@ ssw.o: ssw.h
 ssw_cpp.o:ssw_cpp.h
 
 openmp:
-	$(MAKE) CXXFLAGS="$(CXXFLAGS) -fopenmp -D HAS_OPENMP"
+	$(MAKE) all CXXFLAGS="$(CXXFLAGS) -fopenmp -D HAS_OPENMP"
 
 profiling:
-	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
+	$(MAKE) all CXXFLAGS="$(CXXFLAGS) -g" all
 
 gprof:
-	$(MAKE) CXXFLAGS="$(CXXFLAGS) -pg" all
+	$(MAKE) all CXXFLAGS="$(CXXFLAGS) -pg" all
 
 $(OBJECTS): $(SOURCES) $(HEADERS) $(TABIX)
-	$(CXX) $(*F).cpp -c -o $@ $(INCLUDES) $(LDFLAGS) $(CXXFLAGS)
+	$(CXX) $(*F).cpp -c -o $@ $(INCLUDES) $(IncludeDirs) $(CXXFLAGS) $(LDFLAGS)
 
 $(TABIX):
-	cd tabixpp && $(MAKE)
+	cd tabixpp && $(MAKE) all CFLAGS="$(CXXFLAGS)"
 
 $(SMITHWATERMAN):
-	cd smithwaterman && $(MAKE)
+	cd smithwaterman && $(MAKE) all CFLAGS="$(CXXFLAGS)"
 
 $(DISORDER): $(SMITHWATERMAN)
 
@@ -123,16 +133,19 @@ $(LEFTALIGN): $(SMITHWATERMAN)
 $(INDELALLELE): $(SMITHWATERMAN)
 
 $(FASTAHACK):
-	cd fastahack && $(MAKE)
+	cd fastahack && $(MAKE) all CXXFLAGS="$(CXXFLAGS)"
 
 $(FSOM):
-	cd fsom && $(CXX) $(CXXFLAGS) -c fsom.c -lm
+	cd fsom && $(CXX) $(CXXFLAGS) -c fsom.c $(IncludeDirs) -lm
 
 $(BINS): $(BIN_SOURCES) $(OBJECTS) $(SMITHWATERMAN) $(FASTAHACK) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) $(FSOM)
-	$(CXX) $(OBJECTS) $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) $(FASTAHACK) $(FSOM) tabixpp/tabix.o tabixpp/bgzf.o $@.cpp -o $@ $(INCLUDES) $(LDFLAGS) $(CXXFLAGS)
+	$(CXX) $(OBJECTS) $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) $(FASTAHACK) $(FSOM) tabixpp/tabix.o tabixpp/bgzf.o $@.cpp -o $@ $(INCLUDES) $(IncludeDirs) $(CXXFLAGS) $(LDFLAGS)
+
+$(SharedLibTargets): $(BIN_SOURCES) $(OBJECTS) $(SMITHWATERMAN) $(FASTAHACK) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) $(FSOM)
+	$(CXX) $(OBJECTS) $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) $(FASTAHACK) $(FSOM) tabixpp/tabix.o tabixpp/bgzf.o -o $@ $(SharedLibFlags) $(INCLUDES) $(IncludeDirs) $(CXXFLAGS) $(LDFLAGS)
 
 clean:
-	rm -f $(BINS) $(OBJECTS)
+	rm -f $(BINS) $(OBJECTS) $(SharedLibTargets)
 	rm -f ssw_cpp.o ssw.o
 	cd tabixpp && make clean
 	cd smithwaterman && make clean
