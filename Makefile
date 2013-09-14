@@ -142,8 +142,8 @@ $(BINS): $(BIN_SOURCES) $(OBJECTS) $(SMITHWATERMAN) $(FASTAHACK) $(DISORDER) $(L
 	$(CXX) $(OBJECTS) $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) $(FASTAHACK) $(FSOM) tabixpp/tabix.o tabixpp/bgzf.o $@.cpp -o $@ $(INCLUDES) $(IncludeDirs) $(CXXFLAGS) $(LDFLAGS)
 
 #$(SharedLibTargets): $(BIN_SOURCES) $(OBJECTS) $(SMITHWATERMAN) $(FASTAHACK) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) $(FSOM)
-$(SharedLibTargets): $(BIN_SOURCES) $(OBJECTS) $(FASTAHACK) $(TABIX)
-	$(CXX) Variant.o split.o $(TABIX) $(FASTAHACK) tabixpp/bgzf.o -o $@ $(SharedLibFlags) $(INCLUDES) $(IncludeDirs) $(CXXFLAGS) $(LDFLAGS)
+$(SharedLibTargets): $(BIN_SOURCES) $(OBJECTS) $(TABIX)
+	$(CXX) Variant.o split.o $(TABIX) tabixpp/bgzf.o -o $@ $(SharedLibFlags) $(INCLUDES) $(IncludeDirs) $(CXXFLAGS) $(LDFLAGS)
 
 clean:
 	rm -f $(BINS) $(OBJECTS) $(SharedLibTargets)
