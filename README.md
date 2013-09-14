@@ -9,13 +9,98 @@
 
 ## overview
 
-The Variant Call Format (VCF) is a flat-file, tab-delimited textual format
-intended to concisely describe reference-indexed variations between
-individuals.  The current specification can be found on the 1000 Genomes wiki
-(http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41)
+The [Variant Call Format (VCF)](http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41)
+is a flat-file, tab-delimited textual format
+intended to concisely describe reference-indexed variations between individuals. 
+VCF provides a common interchange format for the description of variation in individuals and populations of samples,
+and has become the _defacto_ standard reporting format for a wide array of genomic variant detectors.
 
-This library provides a simple API to map each VCF record into a C++ class.
-See included applications for example usage.
+vcflib provides methods to manipulate and interpret sequence variation as it can be described by VCF.
+It is both:
+
+ * an API for parsing and operating on records of genomic variation as it can be described by the VCF format,
+ * and a collection of command-line utilities for executing complex manipulations on VCF files.
+
+The API itself provides a quick and extremely permissive method to read and write VCF files.
+Extensions and applications of the library provided in the included utilities (*.cpp) comprise the vast bulk of the library's utility for most users.
+
+## usage
+
+vcflib provides a variety of functions for VCF manipulation:
+
+### comparison
+
+ * Generate **haplotype-aware intersections** ([vcfintersect](#vcfintersect) -i), **unions** (vcfintersect -u), and **complements** (vcfintersect -v -i).
+ * **Overlay-merge** multiple VCF files together, using provided order as precedence ([vcfoverlay](#vcfoverlay)).
+ * **Validate** the integrity and identity of the VCF by verifying that the VCF record's REF matches a given reference file ([vcfcheck](#vcfcheck)).
+
+### format conversion
+
+ * Convert a VCF file into a per-allele or per-genotype **tab-separated (.tsv)** file ([vcf2tsv](#vcf2tsv)).
+ * Store a VCF file in an **SQLite3** database (vcf2sqlite.py).
+ * Make a **BED file** from the intervals in a VCF file (vcf2bed.py).
+
+### filtering and subsetting
+
+ * **Filter** variants and genotypes using arbitrary expressions based on values in the INFO and sample fields ([vcffilter](#vcffilter)).
+ * **Randomly sample** a subset of records from a VCF file, given a rate ([vcfrandomsample](#vcfrandomsample)).
+ * **Select variants** of a certain type (vcfsnps, vcfbiallelic, vcfindels, vcfcomplex, etc.)
+
+### annotation
+
+ * **Annotate** one VCF file with fields from the INFO column of another, based on position ([vcfaddinfo](#vcfaddinfo), [vcfintersect](#vcfintersect)).
+ * Incorporate annotations or targets provided by a *BED* file ([vcfannotate](#vcfannotate), [vcfintersect](#vcfintersect)).
+ * Examine **genotype correspondence** between two VCF files by annotating samples in one file with genotypes from another ([vcfannotategenotypes](#vcfannotategenotypes)).
+ * Annotate variants with the **distance** to the nearest variant ([vcfdistance](#vcfdistance)).
+ * Count the number of alternate alleles represented in samples at each variant record ([vcfaltcount](#vcfaltcount)).
+ * **Subset INFO fields** to decrease file size and processing time ([vcfkeepinfo](#vcfkeepinfo)).
+ * Lighten up VCF files by keeping only a **subset of per-sample information** ([vcfkeepgeno](#vcfkeepgeno)).
+
+### samples
+
+ * Quickly obtain the **list of samples** in a given VCF file ([vcfsamplenames](#vcfsamplenames)).
+ * **Remove samples** from a VCF file ([vcfkeepsamples](#vcfkeepsamples), [vcfremovesamples](#vcfremovesamples)).
+
+### ordering
+
+ * **Sort variants** by genome coordinate ([vcfstreamsort](#vcfstreamsort)).
+ * **Remove duplicate** variants in vcfstreamsort'ed files according to their REF and ALT fields ([vcfuniq](#vcfuniq)).
+
+### variant representation
+
+ * **Break multiallelic** records into multiple records ([vcfbreakmulti](#vcfbreakmulti)), retaining allele-specific INFO fields.
+ * **Combine overlapping biallelic** records into a single record ([vcfcreatemulti](#vcfcreatemulti)).
+ * **Decompose complex variants** into a canonical SNP and indel representation ([vcfallelicprimitives](#vcfallelicprimitives)), generating phased genotypes for available samples.
+ * **Reconstitute complex variants** provided a phased VCF with samples ([vcfgeno2haplo](#vcfgeno2haplo)).
+
+### genotype manipulation
+
+ * **Set genotypes** in a VCF file provided genotype likelihoods in the GL field ([vcfglxgt](#vcfglxgt)).
+ * Establish putative **somatic variants** using reported differences between germline and somatic samples ([vcfsamplediff](#vcfsamplediff)).
+ * Remove samples for which the reported genotype (GT) and observation counts disagree (AO, RO) ([vcfremoveaberrantgenotypes](#vcfremoveaberrantgenotypes)).
+
+### interpretation and classification of variants
+
+ * Obtain aggregate **statistics** about VCF files ([vcfstats](#vcfstats)).
+ * Print the **receiver-operating characteristic (ROC)** of one VCF given a truth set ([vcfroc](#vcfroc)).
+ * Annotate VCF records with the **Shannon entropy** of flanking sequence ([vcfentropy](#vcfentropy)).
+ * Calculate the heterozygosity rate ([vcfhetcount](#vcfhetcount)).
+ * Generate potential **primers** from VCF records ([vcfprimers](#vcfprimers)), to check for genome uniqueness.
+ * Convert the numerical represenation of genotypes provided by the GT field to a **human-readable genotype format** ([vcfgenotypes](#vcfgenotypes)).
+ * Observe how different alignment parameters, including context and entropy-dependent ones, influence **variant classification and interpretation** ([vcfremap](#vcfremap)).
+ * **Classify variants** by annotations in the INFO field using a self-organizing map ([vcfsom](#vcfsom)); **re-estimate their quality** given known variants.
+
+
+A number of "helper" perl and python scripts (e.g. vcf2bed.py, vcfbiallelic) further extend functionality.
+
+In practice, users are encouraged to drive the utilities in the library in a streaming fashion, using pipes, to fully utilize resources on multi-core systems during interactive work.  Piping provides a convenient method to interface with other libraries (vcf-tools, BedTools, GATK, htslib, bcftools, freebayes) which interface via VCF files, allowing the composition of an immense variety of processing functions.
+
+## development
+
+See src/vcfecho.cpp for basic usage.  src/Variant.h and src/Variant.cpp describe methods available in the API.
+vcflib is incorporated into several projects, such as [freebayes](https://github.com/ekg/freebayes), which may provide a point of reference for prospective developers.
+Additionally, developers should be aware of that vcflib contains submodules (git repositories) comprising its dependencies (outside of lzib and a *nix environment).
+
 
 ## installing
 
@@ -32,11 +117,12 @@ To build, use Make:
     % cd vcflib
     % make
 
-Executables are built into the root directory of the repository.
+Executables are built into the ./bin directory in the repository.
+A number of shell, perl, python, and R scripts already reside there.
+This makes installation easy, as users can add vcflib/bin to their path, or copy the contained executables to a directory already in their path.
+
 
 ## executables
-
-An overview of functions provided by executables in vcflib.
 
 ### vcf2tsv
     
@@ -137,7 +223,11 @@ reflect positional change.
 ### vcfcountalleles
     
 Counts the total number of alleles in the input.
-    
+
+
+### vcfcreatemulti
+
+If overlapping alleles are represented across multiple records, merge them into a single record.
     
 ### vcfdistance
     
@@ -195,7 +285,10 @@ given window size to the left, right, and center  of the record.
 
     
 ### vcffixup
-    
+
+Count the allele frequencies across alleles present in each record in the 
+VCF file.  (Similar to vcftools --freq.)
+
 Uses genotypes from the VCF file to correct AC (alternate allele count), AF
 (alternate allele frequency), NS (number of called), in the VCF records.  For
 example:
@@ -312,8 +405,7 @@ Provides the ratio between heterozygotes and homozygotes.
     
 ### vcflength
     
-    terminate called after throwing an instance of 'std::out_of_range'
-      what():  basic_string::substr
+Adds the length of the variant record (in [-/+]) relative to the reference allele to each VCF record.
     
     
 ### vcfnumalt

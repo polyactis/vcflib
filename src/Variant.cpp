@@ -810,6 +810,10 @@ VariantFieldType Variant::infoType(string& key) {
                                 cerr << "should not get here" << endl; exit(1);
                                 break;
                         }
+                    } else if (a.type == RuleToken::STRING_VARIABLE && b.type == RuleToken::NUMERIC_VARIABLE) {
+                        r.state = (convert(b.number) == a.str);
+                    } else if (b.type == RuleToken::STRING_VARIABLE && a.type == RuleToken::NUMERIC_VARIABLE) {
+                        r.state = (convert(a.number) == b.str);
                     }
                     results.push(r);
                     break;
@@ -821,7 +825,7 @@ VariantFieldType Variant::infoType(string& key) {
                         r.state = (b.number > a.number);
                     } else {
                         cerr << "cannot compare (>) objects of dissimilar types" << endl;
-			;                        cerr << a.type << " " << b.type << endl;
+                        cerr << a.type << " " << b.type << endl;
                         exit(1);
                     }
                     results.push(r);
@@ -2103,6 +2107,12 @@ bool Variant::isPhased(void) {
     return true;
 }
 
+long Variant::zeroBasedPosition(void) {
+    return position - 1;
+}
 
+string Variant::vrepr(void) {
+    return sequenceName + "\t" + convert(position) + "\t" + join(alleles, ",");
+}
 
 } // end namespace vcf
