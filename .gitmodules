@@ -1,9 +1,9 @@
 [submodule "tabixpp"]
 	path = tabixpp
-	url = git://github.com/ekg/tabixpp.git
+	url = git@github.com:polyactis/tabixpp.git
 [submodule "smithwaterman"]
 	path = smithwaterman
-	url = git://github.com/ekg/smithwaterman.git
+	url = git@github.com:polyactis/smithwaterman.git
 [submodule "multichoose"]
 	path = multichoose
 	url = git://github.com/ekg/multichoose.git
@@ -15,4 +15,4 @@
 	url = git://github.com/ekg/intervaltree.git
 [submodule "fsom"]
 	path = fsom
-	url = git://github.com/ekg/fsom.git
+	url = git@github.com:polyactis/fsom.git
