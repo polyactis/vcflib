@@ -24,6 +24,8 @@ SharedLibFlags	= -shared -fPIC
 #SRCS
 
 
+$(StaticLibTargets):	%.a:	%.o
+	-ar crfvs $@ $<
 
 #$(SharedLibTargets):	%.so:	%.o
 #	-$(CXXCOMPILER) $< $(SharedLibFlags) -o $@ $(CXXLDFLAGS)

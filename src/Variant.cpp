@@ -80,7 +80,7 @@ void Variant::parse(string& line, bool parseSamples) {
         vector<string>::iterator sample = fields.begin() + 9;
         for (; sample != fields.end() && sampleName != sampleNames.end(); ++sample, ++sampleName) {
             string& name = *sampleName;
-            if (*sample == "." || *sample == "./.") {
+            if (*sample == "." || *sample == "./." or *sample==".|.") {	//2013.09.17 yh added .|. as another NA
                 samples.erase(name);
                 continue;
             }
@@ -1061,44 +1061,40 @@ vector<string> VariantCallFile::formatIds(void) {
 }
 
 void VariantCallFile::readInLocusList(){
-	Variant var = Variant();
-	var.setOutputSampleNames(sampleNames);
-	var.setVariantCallFile(this);
-	while (getNextVariant(var)) {
-		Locus locus(var.sequenceName, var.position);
+	Variant _var = Variant();
+	_var.setOutputSampleNames(sampleNames);
+	_var.setVariantCallFile(this);
+	while (getNextVariant(_var)) {
+		Locus locus(_var.sequenceName, _var.position);
 		locus2index.insert(locus2indexBiMapType::value_type(locus, locusList.size()));
 		locusList.push_back(locus);
 	}
 }
 
 void VariantCallFile::readInDataMatrix(){
-	Variant var = Variant();
-	//var.setOutputSampleNames(sampleNames);
-	var.setVariantCallFile(this);
-	while (getNextVariant(var)) {
-		Locus locus(var.sequenceName, var.position);
+	Variant _var = Variant();
+	_var.setOutputSampleNames(sampleNames);
+	_var.setVariantCallFile(this);
+	map<string, map<string, vector<string> > >::iterator sampleDataIterator;
+	map<string, map<string, vector<string> > >::iterator sampleDataEnd;
+	while (getNextVariant(_var)) {
+		Locus locus(_var.sequenceName, _var.position);
+		//cerr << endl << locus;
 		locus2index.insert(locus2indexBiMapType::value_type(locus, locus2index.size()) );
 		locusList.push_back(locus);
-
-		map<string, map<string, vector<string> > >::iterator s =
-				var.samples.begin();
-		map<string, map<string, vector<string> > >::iterator sEnd =
-				var.samples.end();
-
-		int* oneVariantGenotypeVector = new int[sampleNames.size()];
+		int* oneVariantGenotypeVector = new int[sampleNames.size()]();	//() initializes everything to 0.
 		int i=0;
-		for (; s != sEnd; ++s) {
-			map < string, vector<string> > &sample = s->second;
+		sampleDataIterator = _var.samples.begin();	//reset
+		sampleDataEnd = _var.samples.end();
+		for (; sampleDataIterator != sampleDataEnd; ++sampleDataIterator) {	//if whole sample data is "./." or . or ".|.", it's skipped. not in sampleDataIterator.
+			map < string, vector<string> > &sample = sampleDataIterator->second;
 			string& indexGenotype = sample["GT"].front(); // XXX assumes we can only have one GT value
-			int genotypeInteger = var.encodeGenotype(var.translateIndexGenotypeIntoNucleotideGenotype(indexGenotype));
-
-			sampleName2index.insert(sampleName2indexBiMapType::value_type(s->first, sampleNames.size()) );
-			sampleNames.push_back(s->first);
+			int genotypeInteger = _var.encodeGenotype(_var.translateIndexGenotypeIntoNucleotideGenotype(indexGenotype));
 			oneVariantGenotypeVector[i] = genotypeInteger;
-			//oneVariantGenotypeVector.push_back(genotypeInteger);
 			i++;
-
+			//cerr << boost::format("\t %1% \t %2% \t %3% .")% indexGenotype % _var.translateIndexGenotypeIntoNucleotideGenotype(indexGenotype) % genotypeInteger;
 		}
+		//cerr << endl;
 		dataMatrix.push_back(oneVariantGenotypeVector);
 	}
 }
@@ -1246,6 +1242,13 @@ bool VariantCallFile::parseHeader(string& hs) {
             if (fields.size() > 8) {
                 sampleNames.resize(fields.size() - 9);
                 copy(fields.begin() + 9, fields.end(), sampleNames.begin());
+                for (int i=0; i<sampleNames.size(); i++){
+                	if (sampleName2index.left.find(sampleNames[i])!=sampleName2index.left.end()){
+                		std::cerr<< boost::format("Warning: sample %1% already in sampleName2index with index=%2%.\n") % sampleNames[i] %
+                				sampleName2index.left.find(sampleNames[i])->second;
+                	}
+                	sampleName2index.insert(sampleName2indexBiMapType::value_type(sampleNames[i], i) );
+                }
             }
         }
     }

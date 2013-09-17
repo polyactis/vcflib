@@ -99,8 +99,9 @@ FSOM = fsom/fsom.o
 INCLUDES = -I. -L. -Ltabixpp/
 
 SharedLibTargets	= libvcf.so
+StaticLibTargets 	= libvcf.a
 
-all: $(SharedLibTargets) $(OBJECTS) $(BINS)
+all: $(StaticLibTargets) $(SharedLibTargets) $(OBJECTS) $(BINS)
 
 
 SSW = src/ssw.o src/ssw_cpp.o
@@ -150,8 +151,11 @@ $(BINS): $(BIN_SOURCES) $(OBJECTS) $(SMITHWATERMAN) $(FASTAHACK) $(DISORDER) $(L
 $(SharedLibTargets): $(BIN_SOURCES) $(OBJECTS) $(TABIX) $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW)
 	$(CXX) src/Variant.o src/split.o $(TABIX) tabixpp/bgzf.o $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) -o $@ $(SharedLibFlags) $(INCLUDES) $(IncludeDirs) $(CXXFLAGS) $(LDFLAGS)
 
+$(StaticLibTargets):	$(BIN_SOURCES) $(OBJECTS) $(TABIX) $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) smithwaterman/disorder.o tabixpp/bgzip.o  tabixpp/knetfile.o tabixpp/index.o
+	-ar crfvs $@ src/Variant.o src/split.o $(TABIX) tabixpp/bgzf.o $(SMITHWATERMAN) $(REPEATS) $(DISORDER) $(LEFTALIGN) $(INDELALLELE) $(SSW) smithwaterman/disorder.o tabixpp/bgzip.o  tabixpp/knetfile.o tabixpp/index.o 
+
 clean:
-	rm -f $(BINS) $(OBJECTS) $(SharedLibTargets)
+	rm -f $(BINS) $(OBJECTS) $(SharedLibTargets) $(StaticLibTargets)
 	rm -f ssw_cpp.o ssw.o
 	cd tabixpp && make clean
 	cd smithwaterman && make clean

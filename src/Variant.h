@@ -20,8 +20,10 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/assign/list_inserter.hpp>
 #include <boost/bimap/bimap.hpp>
-#include <boost/bimap/multiset_of.hpp>
 #include <boost/bimap/list_of.hpp>
+#include <boost/bimap/set_of.hpp>
+#include <boost/bimap/multiset_of.hpp>
+#include <boost/format.hpp>
 
 #include "split.h"
 #include "join.h"
@@ -85,7 +87,7 @@ public:
 
 
 typedef boost::bimap<Locus, long > locus2indexBiMapType;
-typedef boost::bimap<string, long > sampleName2indexBiMapType;
+typedef boost::bimap<string, boost::bimaps::multiset_of<long> > sampleName2indexBiMapType;
 
 class VariantCallFile {
 
@@ -311,10 +313,10 @@ public:
 		for (string::iterator gIterator = indexGenotype.begin();
 				gIterator != indexGenotype.end(); ++gIterator) {
 			char singleNucleotide = *gIterator;
-			if (singleNucleotide=='/' or singleNucleotide=='|'){
+			if (singleNucleotide=='/' or singleNucleotide=='|' or singleNucleotide=='.'){
 				nucleotideList.push_back(string(gIterator, gIterator+1));
 			}
-			else{
+			else{	//ignore missing genotype
 				int index = atoi(&singleNucleotide);
 				nucleotideList.push_back(alleles[index]);
 			}
